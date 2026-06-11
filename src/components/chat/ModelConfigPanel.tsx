@@ -8,7 +8,7 @@ type ModelConfigPanelProps = {
   selectedConfig?: ModelConfig;
   selectedConfigId: string | null;
   onSelect: (id: string) => void;
-  onSave: (config: Omit<ModelConfig, "createdAt" | "updatedAt">) => Promise<void>;
+  onSave: (config: Omit<ModelConfig, "createdAt" | "updatedAt">) => Promise<void | ModelConfig>;
 };
 
 const emptyConfig = {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 type BrowserSpeechRecognition = {
   lang: string;
@@ -35,15 +35,13 @@ declare global {
 
 export function useSpeechRecognition(onTranscript: (text: string) => void) {
   const [isListening, setIsListening] = useState(false);
+  const [isSupported, setIsSupported] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const recognitionRef = useRef<BrowserSpeechRecognition | null>(null);
 
-  const isSupported = useMemo(
-    () =>
-      typeof window !== "undefined" &&
-      Boolean(window.SpeechRecognition || window.webkitSpeechRecognition),
-    [],
-  );
+  useEffect(() => {
+    setIsSupported(Boolean(window.SpeechRecognition || window.webkitSpeechRecognition));
+  }, []);
 
   const start = useCallback(() => {
     if (!isSupported) {

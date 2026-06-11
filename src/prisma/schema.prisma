@@ -18,6 +18,11 @@ enum ModelRunStatus {
   error
 }
 
+enum VoiceAssetKind {
+  input_audio
+  output_audio
+}
+
 model Conversation {
   id            String      @id @default(cuid())
   title         String
@@ -38,6 +43,7 @@ model Message {
   role           MessageRole
   contentText    String
   modelRuns      ModelRun[]
+  voiceAssets    VoiceAsset[]
   createdAt      DateTime     @default(now())
 
   @@index([conversationId, createdAt])
@@ -76,4 +82,20 @@ model ModelRun {
 
   @@index([conversationId, createdAt])
   @@index([messageId])
+}
+
+model VoiceAsset {
+  id         String         @id @default(cuid())
+  messageId  String?
+  message    Message?       @relation(fields: [messageId], references: [id], onDelete: SetNull)
+  kind       VoiceAssetKind
+  filePath   String
+  mimeType   String
+  durationMs Int?
+  sizeBytes  Int
+  transcript String?
+  createdAt  DateTime       @default(now())
+
+  @@index([messageId])
+  @@index([kind, createdAt])
 }

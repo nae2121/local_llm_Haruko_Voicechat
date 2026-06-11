@@ -1,0 +1,45 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: haruko-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: app
+      POSTGRES_DB: haruko_voicechat
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app -d haruko_voicechat"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build:
+      context: .
+    container_name: haruko-app
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://app:app@postgres:5432/haruko_voicechat
+      OLLAMA_BASE_URL: http://host.docker.internal:11434
+      LLM_MODEL: gemma4:12b
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "3000:3000"
+    volumes:
+      - .:/app
+      - app-node-modules:/app/node_modules
+      - app-next-cache:/app/.next
+
+volumes:
+  postgres-data:
+    name: haruko-postgres-data
+  app-node-modules:
+  app-next-cache:
