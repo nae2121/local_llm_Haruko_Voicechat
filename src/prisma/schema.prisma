@@ -1,0 +1,79 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum MessageRole {
+  system
+  user
+  assistant
+}
+
+enum ModelRunStatus {
+  success
+  error
+}
+
+model Conversation {
+  id            String      @id @default(cuid())
+  title         String
+  modelConfigId String
+  modelConfig   ModelConfig @relation(fields: [modelConfigId], references: [id])
+  messages      Message[]
+  modelRuns     ModelRun[]
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@index([modelConfigId])
+}
+
+model Message {
+  id             String       @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  role           MessageRole
+  contentText    String
+  modelRuns      ModelRun[]
+  createdAt      DateTime     @default(now())
+
+  @@index([conversationId, createdAt])
+}
+
+model ModelConfig {
+  id            String         @id @default(cuid())
+  name          String
+  llmModel      String
+  temperature   Float
+  topP          Float
+  topK          Int
+  maxTokens     Int
+  systemPrompt  String
+  isDefault     Boolean        @default(false)
+  conversations Conversation[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+}
+
+model ModelRun {
+  id             String          @id @default(cuid())
+  conversationId String
+  conversation   Conversation    @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  messageId      String?
+  message        Message?        @relation(fields: [messageId], references: [id], onDelete: SetNull)
+  runType        String
+  provider       String
+  modelName      String
+  inputText      String
+  outputText     String?
+  latencyMs      Int
+  status         ModelRunStatus
+  errorMessage   String?
+  createdAt      DateTime        @default(now())
+
+  @@index([conversationId, createdAt])
+  @@index([messageId])
+}
