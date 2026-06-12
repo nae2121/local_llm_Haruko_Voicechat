@@ -5,13 +5,19 @@ import { ChatInput } from "@/components/chat/ChatInput";
 import { ChatMessages } from "@/components/chat/ChatMessages";
 import { ConversationSidebar } from "@/components/chat/ConversationSidebar";
 import { ModelConfigPanel } from "@/components/chat/ModelConfigPanel";
+import type { ChatMessage } from "@/features/chat/types";
 import { useChat } from "@/features/chat/hooks/useChat";
+import { useLocalSpeechSynthesis } from "@/features/voice/hooks/useLocalSpeechSynthesis";
 import { useSpeechSynthesis } from "@/features/voice/hooks/useSpeechSynthesis";
+import type { VoiceInputMode, VoiceOutputMode } from "@/features/voice/types";
 
 export function ChatLayout() {
   const chat = useChat();
-  const tts = useSpeechSynthesis();
+  const browserTts = useSpeechSynthesis();
+  const localTts = useLocalSpeechSynthesis();
   const [autoSpeak, setAutoSpeak] = useState(false);
+  const [voiceInputMode, setVoiceInputMode] = useState<VoiceInputMode>("browser");
+  const [voiceOutputMode, setVoiceOutputMode] = useState<VoiceOutputMode>("browser");
   const lastSpokenMessageIdRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -22,12 +28,25 @@ export function ChatLayout() {
       lastSpokenMessageIdRef.current !== lastMessage.id
     ) {
       lastSpokenMessageIdRef.current = lastMessage.id;
-      tts.speak(lastMessage.contentText);
+      if (voiceOutputMode === "local_tts") {
+        void localTts.speak(lastMessage);
+      } else {
+        browserTts.speak(lastMessage.contentText);
+      }
     }
-  }, [autoSpeak, chat.messages, tts]);
+  }, [autoSpeak, browserTts, chat.messages, localTts, voiceOutputMode]);
 
   const handleSend = async (message: string) => {
     await chat.sendMessage(message);
+  };
+
+  const handleSpeak = async (message: ChatMessage) => {
+    if (voiceOutputMode === "local_tts") {
+      await localTts.speak(message);
+      return;
+    }
+
+    browserTts.speak(message.contentText);
   };
 
   return (
@@ -47,20 +66,49 @@ export function ChatLayout() {
               {chat.selectedModelConfig?.llmModel ?? "gemma4:12b"} via Ollama
             </p>
           </div>
-          <label className="flex items-center gap-2 text-sm text-white/65">
-            <input
-              type="checkbox"
-              checked={autoSpeak}
-              onChange={(event) => setAutoSpeak(event.target.checked)}
-              className="h-4 w-4 accent-emerald-300"
-            />
-            自動読み上げ
-          </label>
+          <div className="flex flex-wrap items-center gap-3 text-xs text-white/65">
+            <label className="flex items-center gap-2">
+              入力
+              <select
+                value={voiceInputMode}
+                onChange={(event) => setVoiceInputMode(event.target.value as VoiceInputMode)}
+                className="border border-white/10 bg-black px-2 py-1 text-white outline-none"
+              >
+                <option value="browser">browser</option>
+                <option value="local_whisper">local_whisper</option>
+              </select>
+            </label>
+            <label className="flex items-center gap-2">
+              読み上げ
+              <select
+                value={voiceOutputMode}
+                onChange={(event) => setVoiceOutputMode(event.target.value as VoiceOutputMode)}
+                className="border border-white/10 bg-black px-2 py-1 text-white outline-none"
+              >
+                <option value="browser">browser</option>
+                <option value="local_tts">local_tts</option>
+              </select>
+            </label>
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={autoSpeak}
+                onChange={(event) => setAutoSpeak(event.target.checked)}
+                className="h-4 w-4 accent-emerald-300"
+              />
+              自動読み上げ
+            </label>
+          </div>
         </header>
 
         {chat.error ? (
           <div className="border-b border-red-300/20 bg-red-950/30 px-4 py-3 text-sm text-red-100">
             {chat.error}
+          </div>
+        ) : null}
+        {localTts.error ? (
+          <div className="border-b border-red-300/20 bg-red-950/30 px-4 py-3 text-sm text-red-100">
+            {localTts.error}
           </div>
         ) : null}
 
@@ -73,13 +121,20 @@ export function ChatLayout() {
             <ChatMessages
               messages={chat.messages}
               isSending={chat.isSending}
-              onSpeak={tts.speak}
-              isSpeechSupported={tts.isSupported}
+              voiceOutputMode={voiceOutputMode}
+              onSpeak={handleSpeak}
+              isSpeechSupported={browserTts.isSupported}
+              synthesizingMessageId={localTts.synthesizingMessageId}
+              audioUrls={localTts.audioUrls}
             />
           )}
         </div>
 
-        <ChatInput isSending={chat.isSending} onSend={handleSend} />
+        <ChatInput
+          isSending={chat.isSending}
+          voiceInputMode={voiceInputMode}
+          onSend={handleSend}
+        />
       </section>
 
       <ModelConfigPanel

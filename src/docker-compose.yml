@@ -29,6 +29,8 @@ services:
       DATABASE_URL: postgresql://app:app@postgres:5432/haruko_voicechat
       OLLAMA_BASE_URL: http://host.docker.internal:11434
       LLM_MODEL: gemma4:12b
+      STT_SERVICE_URL: http://host.docker.internal:8081
+      TTS_SERVICE_URL: http://host.docker.internal:8082
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:

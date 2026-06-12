@@ -6,6 +6,20 @@ export type ChatMessage = {
   role: ChatRole;
   contentText: string;
   createdAt: string;
+  voiceAssets?: VoiceAsset[];
+};
+
+export type VoiceAsset = {
+  id: string;
+  messageId: string | null;
+  kind: "input_audio" | "output_audio";
+  filePath?: string;
+  mimeType: string;
+  durationMs: number | null;
+  sizeBytes: number;
+  transcript: string | null;
+  createdAt: string;
+  url?: string;
 };
 
 export type ConversationSummary = {

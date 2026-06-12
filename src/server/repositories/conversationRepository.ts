@@ -11,6 +11,7 @@ export async function listConversations() {
       messages: {
         orderBy: { createdAt: "desc" },
         take: 1,
+        include: { voiceAssets: true },
       },
     },
     orderBy: { updatedAt: "desc" },
@@ -24,6 +25,7 @@ export async function getConversationWithMessages(id: string) {
       modelConfig: true,
       messages: {
         orderBy: { createdAt: "asc" },
+        include: { voiceAssets: true },
       },
     },
   });
