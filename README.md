@@ -1,5 +1,25 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+## Voice Credit
+
+音声合成には **COEIROINK:蔓歌せら（げんき！）** を使用します。
+
+- COEIROINK: https://coeiroink.com/
+- COEIROINK利用規約: https://coeiroink.com/terms
+- 蔓歌せら / 音源管理者「さっぱりあんずジャム」利用規約:
+  https://sapparianzujamu.wixsite.com/sapparianzu/%E5%88%A9%E7%94%A8%E8%A6%8F%E7%B4%84
+
+`src/Tsuruka_sera-genki/` の音声モデル、音声サンプル、画像はこのリポジトリでは再配布しません。
+利用者自身で正規配布元から入手し、COEIROINKへインストールしてください。
+
+COEIROINK音声を使う場合は、COEIROINK本体を起動してローカルAPIを有効にしてください。
+Docker版アプリは `http://host.docker.internal:50032`、ホスト上で直接起動する場合は
+`http://127.0.0.1:50032` へ接続します。チャット画面の「読み上げ」から
+`COEIROINK:蔓歌せら` を選択すると使用できます。
+
+生成音声を公開・配布する場合は、最新のCOEIROINK利用規約と音源提供者の利用規約を確認してください。
+批判・攻撃、政治・宗教への勧誘、モデルや音声素材の再配布、機械学習用途など、規約上禁止されている用途には使用しないでください。
+
 ## Getting Started
 
 First, run the development server:

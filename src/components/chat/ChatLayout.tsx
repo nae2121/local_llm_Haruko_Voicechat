@@ -8,16 +8,13 @@ import { ModelConfigPanel } from "@/components/chat/ModelConfigPanel";
 import type { ChatMessage } from "@/features/chat/types";
 import { useChat } from "@/features/chat/hooks/useChat";
 import { useLocalSpeechSynthesis } from "@/features/voice/hooks/useLocalSpeechSynthesis";
-import { useSpeechSynthesis } from "@/features/voice/hooks/useSpeechSynthesis";
-import type { VoiceInputMode, VoiceOutputMode } from "@/features/voice/types";
+import type { VoiceInputMode } from "@/features/voice/types";
 
 export function ChatLayout() {
   const chat = useChat();
-  const browserTts = useSpeechSynthesis();
   const localTts = useLocalSpeechSynthesis();
   const [autoSpeak, setAutoSpeak] = useState(false);
   const [voiceInputMode, setVoiceInputMode] = useState<VoiceInputMode>("browser");
-  const [voiceOutputMode, setVoiceOutputMode] = useState<VoiceOutputMode>("browser");
   const lastSpokenMessageIdRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -28,25 +25,16 @@ export function ChatLayout() {
       lastSpokenMessageIdRef.current !== lastMessage.id
     ) {
       lastSpokenMessageIdRef.current = lastMessage.id;
-      if (voiceOutputMode === "local_tts") {
-        void localTts.speak(lastMessage);
-      } else {
-        browserTts.speak(lastMessage.contentText);
-      }
+      void localTts.speak(lastMessage);
     }
-  }, [autoSpeak, browserTts, chat.messages, localTts, voiceOutputMode]);
+  }, [autoSpeak, chat.messages, localTts]);
 
   const handleSend = async (message: string) => {
     await chat.sendMessage(message);
   };
 
   const handleSpeak = async (message: ChatMessage) => {
-    if (voiceOutputMode === "local_tts") {
-      await localTts.speak(message);
-      return;
-    }
-
-    browserTts.speak(message.contentText);
+    await localTts.speak(message);
   };
 
   return (
@@ -78,17 +66,7 @@ export function ChatLayout() {
                 <option value="local_whisper">local_whisper</option>
               </select>
             </label>
-            <label className="flex items-center gap-2">
-              読み上げ
-              <select
-                value={voiceOutputMode}
-                onChange={(event) => setVoiceOutputMode(event.target.value as VoiceOutputMode)}
-                className="border border-white/10 bg-black px-2 py-1 text-white outline-none"
-              >
-                <option value="browser">browser</option>
-                <option value="local_tts">local_tts</option>
-              </select>
-            </label>
+            <span>読み上げ: COEIROINK:蔓歌せら</span>
             <label className="flex items-center gap-2">
               <input
                 type="checkbox"
@@ -121,9 +99,7 @@ export function ChatLayout() {
             <ChatMessages
               messages={chat.messages}
               isSending={chat.isSending}
-              voiceOutputMode={voiceOutputMode}
               onSpeak={handleSpeak}
-              isSpeechSupported={browserTts.isSupported}
               synthesizingMessageId={localTts.synthesizingMessageId}
               audioUrls={localTts.audioUrls}
             />
@@ -135,6 +111,17 @@ export function ChatLayout() {
           voiceInputMode={voiceInputMode}
           onSend={handleSend}
         />
+        <footer className="border-t border-white/10 bg-black/70 px-4 py-2 text-center text-[11px] text-white/45">
+          Voice:{" "}
+          <a
+            href="https://coeiroink.com/"
+            target="_blank"
+            rel="noreferrer"
+            className="hover:text-emerald-200"
+          >
+            COEIROINK:蔓歌せら（げんき！）
+          </a>
+        </footer>
       </section>
 
       <ModelConfigPanel

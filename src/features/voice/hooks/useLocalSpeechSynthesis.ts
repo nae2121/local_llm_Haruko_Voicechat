@@ -31,8 +31,9 @@ export function useLocalSpeechSynthesis() {
         throw new Error(data.error ?? "音声生成に失敗しました。");
       }
 
-      setAudioUrls((current) => ({ ...current, [message.id]: data.audioUrl }));
-      const audio = new Audio(data.audioUrl);
+      const audioUrl = data.audioUrl;
+      setAudioUrls((current) => ({ ...current, [message.id]: audioUrl }));
+      const audio = new Audio(audioUrl);
       await audio.play();
     } catch (synthesisError) {
       setError(synthesisError instanceof Error ? synthesisError.message : "音声生成に失敗しました。");

@@ -10,5 +10,3 @@ export type SpeechSynthesisState = {
 };
 
 export type VoiceInputMode = "browser" | "local_whisper";
-
-export type VoiceOutputMode = "browser" | "local_tts";

@@ -1,15 +1,12 @@
 "use client";
 
 import type { ChatMessage } from "@/features/chat/types";
-import type { VoiceOutputMode } from "@/features/voice/types";
 import { cn } from "@/lib/utils";
 
 type ChatMessagesProps = {
   messages: ChatMessage[];
   isSending: boolean;
-  voiceOutputMode: VoiceOutputMode;
   onSpeak: (message: ChatMessage) => void | Promise<void>;
-  isSpeechSupported: boolean;
   synthesizingMessageId?: string | null;
   audioUrls?: Record<string, string>;
 };
@@ -17,9 +14,7 @@ type ChatMessagesProps = {
 export function ChatMessages({
   messages,
   isSending,
-  voiceOutputMode,
   onSpeak,
-  isSpeechSupported,
   synthesizingMessageId,
   audioUrls = {},
 }: ChatMessagesProps) {
@@ -43,7 +38,6 @@ export function ChatMessages({
         const isSynthesizing = synthesizingMessageId === message.id;
         const voiceAsset = message.voiceAssets?.find((asset) => asset.kind === "output_audio");
         const audioUrl = audioUrls[message.id] ?? voiceAsset?.url ?? (voiceAsset ? `/api/voice/assets/${voiceAsset.id}` : null);
-        const canSpeak = voiceOutputMode === "local_tts" || isSpeechSupported;
 
         return (
           <div
@@ -60,7 +54,7 @@ export function ChatMessages({
               {isAssistant ? (
                 <button
                   type="button"
-                  disabled={!canSpeak || isSynthesizing}
+                  disabled={isSynthesizing}
                   onClick={() => void onSpeak(message)}
                   className="border border-white/10 px-2 py-1 text-white/70 hover:border-emerald-300/40 hover:text-emerald-100 disabled:cursor-not-allowed disabled:text-white/25"
                 >

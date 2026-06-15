@@ -12,6 +12,15 @@ type SynthesizeJsonResponse = {
   durationMs?: number;
 };
 
+type CoeiroinkSpeaker = {
+  speakerName: string;
+  speakerUuid: string;
+  styles: Array<{
+    styleName: string;
+    styleId: number;
+  }>;
+};
+
 export async function transcribeWithLocalStt(params: {
   file: File;
   timeoutMs?: number;
@@ -61,10 +70,41 @@ export async function synthesizeWithLocalTts(params: {
   const timeout = setTimeout(() => controller.abort(), params.timeoutMs ?? 120_000);
 
   try {
-    const response = await fetch(`${env.ttsServiceUrl}/synthesize`, {
+    const speakersResponse = await fetch(`${env.ttsServiceUrl}/v1/speakers`, {
+      signal: controller.signal,
+    });
+    if (!speakersResponse.ok) {
+      throw new Error(`COEIROINKの話者一覧を取得できませんでした: ${speakersResponse.status}`);
+    }
+
+    const speakers = (await speakersResponse.json()) as CoeiroinkSpeaker[];
+    const speaker = speakers.find((item) => item.speakerUuid === env.ttsSpeakerUuid);
+    if (!speaker) {
+      throw new Error("COEIROINKに「蔓歌せら」が導入されていません。音声モデルを追加して再起動してください。");
+    }
+    if (!speaker.styles.some((style) => style.styleId === env.ttsStyleId)) {
+      throw new Error("COEIROINKに「蔓歌せら（げんき！）」スタイルが見つかりません。");
+    }
+
+    const response = await fetch(`${env.ttsServiceUrl}/v1/synthesis`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text: params.text }),
+      body: JSON.stringify({
+        text: params.text,
+        speakerUuid: env.ttsSpeakerUuid,
+        styleId: env.ttsStyleId,
+        speedScale: 1,
+        volumeScale: 1,
+        pitchScale: 0,
+        intonationScale: 1,
+        prosodyDetail: [],
+        prePhonemeLength: 0.1,
+        postPhonemeLength: 0.1,
+        outputSamplingRate: 44_100,
+        sampledIntervalValue: 0,
+        adjustedF0: [],
+        processingAlgorithm: "coeiroink",
+      }),
       signal: controller.signal,
     });
 
@@ -93,7 +133,12 @@ export async function synthesizeWithLocalTts(params: {
     };
   } catch (error) {
     if (error instanceof Error && error.name === "AbortError") {
-      throw new Error("TTS service timed out.");
+      throw new Error("COEIROINKの音声生成がタイムアウトしました。");
+    }
+    if (error instanceof TypeError) {
+      throw new Error(
+        `COEIROINKに接続できません。COEIROINKを起動し、APIが ${env.ttsServiceUrl} で待機していることを確認してください。`,
+      );
     }
     throw error;
   } finally {

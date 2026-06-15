@@ -2,7 +2,7 @@ import { MessageRole, ModelRunStatus } from "@prisma/client";
 import { chatWithOllama } from "@/server/services/ollamaService";
 import { createConversationUsecase } from "@/server/usecases/createConversationUsecase";
 import { getConversationWithMessages, touchConversation } from "@/server/repositories/conversationRepository";
-import { createMessage, listMessagesForConversation } from "@/server/repositories/messageRepository";
+import { createMessage } from "@/server/repositories/messageRepository";
 import { getModelConfigById } from "@/server/repositories/modelConfigRepository";
 import { createModelRun } from "@/server/repositories/modelRunRepository";
 
@@ -35,13 +35,12 @@ export async function sendMessageUsecase(params: {
     contentText: trimmedMessage,
   });
 
-  const history = await listMessagesForConversation(conversation.id);
   const ollamaMessages = [
     { role: MessageRole.system, content: modelConfig.systemPrompt },
-    ...history.map((message) => ({
-      role: message.role as "system" | "user" | "assistant",
-      content: message.contentText,
-    })),
+    {
+      role: userMessage.role as "system" | "user" | "assistant",
+      content: userMessage.contentText,
+    },
   ].filter((message) => message.role !== MessageRole.system || message.content.trim().length > 0);
 
   const startedAt = Date.now();
