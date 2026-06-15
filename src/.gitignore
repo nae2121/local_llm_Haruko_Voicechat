@@ -25,7 +25,7 @@
 
 # Local COEIROINK voice libraries must not be redistributed.
 /Tsuruka_sera-genki/
-*:Zone.Identifier
+/public
 
 # misc
 .DS_Store

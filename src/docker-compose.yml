@@ -25,11 +25,15 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      gemma-audio:
+        condition: service_healthy
     environment:
       DATABASE_URL: postgresql://app:app@postgres:5432/haruko_voicechat
       OLLAMA_BASE_URL: http://host.docker.internal:11434
       LLM_MODEL: gemma4:12b
       STT_SERVICE_URL: http://host.docker.internal:8081
+      GEMMA_AUDIO_SERVICE_URL: http://gemma-audio:8082
+      GEMMA_AUDIO_TIMEOUT_MS: "600000"
       TTS_SERVICE_URL: http://host.docker.internal:50032
       TTS_SPEAKER_UUID: dbf336ac-4daf-11ef-9733-0242ac1c000b
       TTS_STYLE_ID: "2"
@@ -42,8 +46,43 @@ services:
       - app-node-modules:/app/node_modules
       - app-next-cache:/app/.next
 
+  gemma-audio:
+    build:
+      context: ../services/gemma_audio
+    container_name: haruko-gemma-audio
+    restart: unless-stopped
+    environment:
+      HF_TOKEN: ${HF_TOKEN:-${HUGGING_FACE_HUB_TOKEN:-}}
+      GEMMA_AUDIO_MODEL_ID: google/gemma-4-12B-it
+      GEMMA_DEVICE: cpu
+      GEMMA_AUDIO_MAX_TOKENS: "32"
+      GEMMA_GPU_MAX_MEMORY: 7GiB
+      GEMMA_CPU_MAX_MEMORY: 12GiB
+      GEMMA_OFFLOAD_DIR: /models/offload
+    gpus: all
+    shm_size: "2gb"
+    ports:
+      - "8082:8082"
+    volumes:
+      - gemma-huggingface-cache:/models/huggingface
+      - gemma-offload:/models/offload
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8082/health', timeout=3)",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
 volumes:
   postgres-data:
     name: haruko-postgres-data
   app-node-modules:
   app-next-cache:
+  gemma-huggingface-cache:
+  gemma-offload:

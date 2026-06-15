@@ -10,3 +10,11 @@ export type SpeechSynthesisState = {
 };
 
 export type VoiceInputMode = "browser" | "local_whisper";
+
+export type VoiceState =
+  | "disabled"
+  | "idle"
+  | "listening"
+  | "processing"
+  | "speaking"
+  | "error";

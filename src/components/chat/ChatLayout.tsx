@@ -1,40 +1,72 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ChatInput } from "@/components/chat/ChatInput";
+import { HarukoVoicePanel } from "@/components/chat/HarukoVoicePanel";
 import { ChatMessages } from "@/components/chat/ChatMessages";
 import { ConversationSidebar } from "@/components/chat/ConversationSidebar";
 import { ModelConfigPanel } from "@/components/chat/ModelConfigPanel";
 import type { ChatMessage } from "@/features/chat/types";
 import { useChat } from "@/features/chat/hooks/useChat";
+import { useContinuousVoiceChat } from "@/features/voice/hooks/useContinuousVoiceChat";
 import { useLocalSpeechSynthesis } from "@/features/voice/hooks/useLocalSpeechSynthesis";
-import type { VoiceInputMode } from "@/features/voice/types";
 
 export function ChatLayout() {
   const chat = useChat();
   const localTts = useLocalSpeechSynthesis();
-  const [autoSpeak, setAutoSpeak] = useState(false);
-  const [voiceInputMode, setVoiceInputMode] = useState<VoiceInputMode>("browser");
+  const { sendAudio } = chat;
+  const { speak, outputLevel } = localTts;
+  const [autoSpeak, setAutoSpeak] = useState(true);
   const lastSpokenMessageIdRef = useRef<string | null>(null);
+  const voiceResponsePendingRef = useRef(false);
+
+  const processVoiceAudio = useCallback(
+    async (file: File) => {
+      voiceResponsePendingRef.current = true;
+      const assistantMessage = await sendAudio(file);
+      if (!assistantMessage) {
+        voiceResponsePendingRef.current = false;
+      }
+      return assistantMessage;
+    },
+    [sendAudio],
+  );
+
+  const speakVoiceResponse = useCallback(
+    async (message: ChatMessage) => {
+      lastSpokenMessageIdRef.current = message.id;
+      voiceResponsePendingRef.current = false;
+      await speak(message);
+    },
+    [speak],
+  );
+
+  const continuousVoice = useContinuousVoiceChat({
+    processAudio: processVoiceAudio,
+    speak: speakVoiceResponse,
+  });
+  const { playMessage } = continuousVoice;
 
   useEffect(() => {
     const lastMessage = chat.messages.at(-1);
     if (
       autoSpeak &&
+      !voiceResponsePendingRef.current &&
       lastMessage?.role === "assistant" &&
       lastSpokenMessageIdRef.current !== lastMessage.id
     ) {
       lastSpokenMessageIdRef.current = lastMessage.id;
-      void localTts.speak(lastMessage);
+      void playMessage(lastMessage);
     }
-  }, [autoSpeak, chat.messages, localTts]);
+  }, [autoSpeak, chat.messages, playMessage]);
 
   const handleSend = async (message: string) => {
     await chat.sendMessage(message);
   };
 
   const handleSpeak = async (message: ChatMessage) => {
-    await localTts.speak(message);
+    lastSpokenMessageIdRef.current = message.id;
+    await playMessage(message);
   };
 
   return (
@@ -55,17 +87,7 @@ export function ChatLayout() {
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-3 text-xs text-white/65">
-            <label className="flex items-center gap-2">
-              入力
-              <select
-                value={voiceInputMode}
-                onChange={(event) => setVoiceInputMode(event.target.value as VoiceInputMode)}
-                className="border border-white/10 bg-black px-2 py-1 text-white outline-none"
-              >
-                <option value="browser">browser</option>
-                <option value="local_whisper">local_whisper</option>
-              </select>
-            </label>
+            <span>入力: Gemma 4 Audio</span>
             <span>読み上げ: COEIROINK:蔓歌せら</span>
             <label className="flex items-center gap-2">
               <input
@@ -90,6 +112,20 @@ export function ChatLayout() {
           </div>
         ) : null}
 
+        <HarukoVoicePanel
+          state={continuousVoice.state}
+          level={
+            continuousVoice.state === "speaking"
+              ? outputLevel
+              : continuousVoice.inputLevel
+          }
+          error={continuousVoice.error}
+          isSupported={continuousVoice.isSupported}
+          onStart={() => void continuousVoice.start()}
+          onStop={() => void continuousVoice.stop()}
+          onReconnect={() => void continuousVoice.reconnect()}
+        />
+
         <div className="min-h-0 flex-1 overflow-hidden">
           {chat.isLoadingConversation ? (
             <div className="flex h-full items-center justify-center text-sm text-white/50">
@@ -108,7 +144,6 @@ export function ChatLayout() {
 
         <ChatInput
           isSending={chat.isSending}
-          voiceInputMode={voiceInputMode}
           onSend={handleSend}
         />
         <footer className="border-t border-white/10 bg-black/70 px-4 py-2 text-center text-[11px] text-white/45">

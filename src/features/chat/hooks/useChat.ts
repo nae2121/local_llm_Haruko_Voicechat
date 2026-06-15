@@ -9,6 +9,11 @@ type ChatResponse = {
   assistantMessage: ChatMessage;
 };
 
+type AudioChatResponse = ChatResponse & {
+  transcript: string;
+  response: string;
+};
+
 type ConversationResponse = {
   conversation: ConversationSummary & { messages: ChatMessage[] };
 };
@@ -132,6 +137,44 @@ export function useChat() {
     [conversationId, fetchConversations, isSending, selectedModelConfigId],
   );
 
+  const sendAudio = useCallback(
+    async (file: File) => {
+      if (isSending) {
+        return null;
+      }
+      setIsSending(true);
+      setError(null);
+      try {
+        const formData = new FormData();
+        formData.append("file", file);
+        if (conversationId) {
+          formData.append("conversationId", conversationId);
+        }
+        if (selectedModelConfigId) {
+          formData.append("modelConfigId", selectedModelConfigId);
+        }
+        const response = await fetch("/api/chat/audio", {
+          method: "POST",
+          body: formData,
+        });
+        const data = (await response.json()) as AudioChatResponse & { error?: string };
+        if (!response.ok) {
+          throw new Error(data.error ?? "音声送信に失敗しました。");
+        }
+        setConversationId(data.conversationId);
+        setMessages((current) => [...current, data.userMessage, data.assistantMessage]);
+        await fetchConversations();
+        return data.assistantMessage;
+      } catch (sendError) {
+        setError(sendError instanceof Error ? sendError.message : "音声送信に失敗しました。");
+        return null;
+      } finally {
+        setIsSending(false);
+      }
+    },
+    [conversationId, fetchConversations, isSending, selectedModelConfigId],
+  );
+
   const saveModelConfig = useCallback(
     async (input: Omit<ModelConfig, "createdAt" | "updatedAt">) => {
       setError(null);
@@ -165,6 +208,7 @@ export function useChat() {
     loadConversation,
     startNewConversation,
     sendMessage,
+    sendAudio,
     saveModelConfig,
   };
 }
