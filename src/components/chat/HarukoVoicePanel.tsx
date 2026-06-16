@@ -7,10 +7,10 @@ import { cn } from "@/lib/utils";
 
 const labels: Record<VoiceState, string> = {
   disabled: "音声会話は停止中",
-  idle: "話しかけてください",
-  listening: "聞いています",
-  processing: "考えています",
-  speaking: "HARUKOが話しています",
+  idle: "話しかけてね",
+  listening: "聞いてるよ",
+  processing: "考え中だよ！",
+  speaking: "話してるよ！",
   error: "接続が止まりました",
 };
 
