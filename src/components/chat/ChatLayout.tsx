@@ -30,8 +30,18 @@ export function ChatLayout() {
   const [interactionMode, setInteractionMode] = useState<InteractionMode>("voice");
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [draftMessage, setDraftMessage] = useState("");
+  const [speechVisibleMessageIds, setSpeechVisibleMessageIds] = useState<Set<string>>(() => new Set());
   const lastSpokenMessageIdRef = useRef<string | null>(null);
   const voiceResponsePendingRef = useRef(false);
+
+  const revealAssistantText = useCallback((messageId: string) => {
+    setSpeechVisibleMessageIds((current) => {
+      if (current.has(messageId)) {
+        return current;
+      }
+      return new Set(current).add(messageId);
+    });
+  }, []);
 
   const processVoiceAudio = useCallback(
     async (file: File) => {
@@ -66,9 +76,12 @@ export function ChatLayout() {
     async (message: ChatMessage) => {
       lastSpokenMessageIdRef.current = message.id;
       voiceResponsePendingRef.current = false;
-      await speak(message);
+      await speak(message, {
+        onPlaybackStart: () => revealAssistantText(message.id),
+      });
+      revealAssistantText(message.id);
     },
-    [speak],
+    [revealAssistantText, speak],
   );
 
   const continuousVoice = useContinuousVoiceChat({
@@ -106,6 +119,10 @@ export function ChatLayout() {
   );
   const activeLevel = continuousVoice.state === "speaking" ? outputLevel : continuousVoice.inputLevel;
   const statusLabel = interactionMode === "text" ? "テキストモード" : stateLabels[continuousVoice.state];
+  const shouldWaitForSpeechText =
+    autoSpeak &&
+    latestAssistantMessage !== undefined &&
+    !speechVisibleMessageIds.has(latestAssistantMessage.id);
 
   const handleSend = async (message: string) => {
     await chat.sendMessage(message);
@@ -221,7 +238,9 @@ export function ChatLayout() {
               body={
                 chat.isSending
                   ? "考えています..."
-                  : latestAssistantMessage?.contentText ?? ""
+                  : shouldWaitForSpeechText
+                    ? ""
+                    : latestAssistantMessage?.contentText ?? ""
               }
             />
           </div>

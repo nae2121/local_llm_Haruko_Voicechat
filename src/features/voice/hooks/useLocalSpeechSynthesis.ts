@@ -7,6 +7,15 @@ type SynthesizeResponse = {
   error?: string;
 };
 
+type SpeechMessage = {
+  id: string;
+  contentText: string;
+};
+
+type SpeechOptions = {
+  onPlaybackStart?: () => void;
+};
+
 export function useLocalSpeechSynthesis() {
   const [synthesizingMessageId, setSynthesizingMessageId] = useState<string | null>(null);
   const [audioUrls, setAudioUrls] = useState<Record<string, string>>({});
@@ -24,7 +33,7 @@ export function useLocalSpeechSynthesis() {
     setOutputLevel(0);
   }, []);
 
-  const speak = useCallback(async (message: { id: string; contentText: string }) => {
+  const speak = useCallback(async (message: SpeechMessage, options?: SpeechOptions) => {
     const text = message.contentText.trim();
     if (!text) {
       return;
@@ -64,6 +73,7 @@ export function useLocalSpeechSynthesis() {
       setIsSpeaking(true);
       updateMeter();
       await audio.play();
+      options?.onPlaybackStart?.();
       await new Promise<void>((resolve, reject) => {
         audio.onended = () => resolve();
         audio.onerror = () => reject(new Error("読み上げ音声を再生できませんでした。"));
