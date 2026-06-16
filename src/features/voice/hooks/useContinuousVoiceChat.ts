@@ -195,7 +195,6 @@ export function useContinuousVoiceChat({ processAudio, speak }: ContinuousVoiceO
         clearScheduledWork();
         setInputLevel(0);
         setState("processing");
-        await context.suspend().catch(() => undefined);
         try {
           const recordingMs = performance.now() - recordingStartedAtRef.current;
           if (recordingMs < MIN_RECORDING_MS || chunksRef.current.length === 0) {
@@ -226,7 +225,6 @@ export function useContinuousVoiceChat({ processAudio, speak }: ContinuousVoiceO
           if (!activeRef.current) {
             return;
           }
-          await context.resume();
           processingRef.current = false;
           speechFramesRef.current = 0;
           silenceStartedAtRef.current = null;
@@ -277,7 +275,6 @@ export function useContinuousVoiceChat({ processAudio, speak }: ContinuousVoiceO
         discardRecordingRef.current = true;
         recorder.stop();
       }
-      await context.suspend().catch(() => undefined);
       try {
         await speakRef.current(message);
         await new Promise<void>((resolve) => {
@@ -291,7 +288,6 @@ export function useContinuousVoiceChat({ processAudio, speak }: ContinuousVoiceO
         if (!activeRef.current) {
           return;
         }
-        await context.resume();
         processingRef.current = false;
         speechFramesRef.current = 0;
         silenceStartedAtRef.current = null;
