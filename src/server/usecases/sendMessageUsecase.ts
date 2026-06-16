@@ -6,6 +6,9 @@ import { createMessage } from "@/server/repositories/messageRepository";
 import { getModelConfigById } from "@/server/repositories/modelConfigRepository";
 import { createModelRun } from "@/server/repositories/modelRunRepository";
 
+const VOICE_CONVERSATION_PROMPT =
+  "音声会話として自然な日本語で、2〜3文以内で簡潔に答えてください。";
+
 export async function sendMessageUsecase(params: {
   conversationId?: string | null;
   message: string;
@@ -16,13 +19,15 @@ export async function sendMessageUsecase(params: {
     throw new Error("メッセージを入力してください。");
   }
 
+  const existingConversation = params.conversationId
+    ? await getConversationWithMessages(params.conversationId)
+    : null;
   const conversation =
-    params.conversationId
-      ? await getConversationWithMessages(params.conversationId)
-      : await createConversationUsecase({
-          firstMessage: trimmedMessage,
-          modelConfigId: params.modelConfigId,
-        });
+    existingConversation ??
+    (await createConversationUsecase({
+      firstMessage: trimmedMessage,
+      modelConfigId: params.modelConfigId,
+    }));
 
   if (!conversation) {
     throw new Error("会話が見つかりません。");
@@ -36,7 +41,16 @@ export async function sendMessageUsecase(params: {
   });
 
   const ollamaMessages = [
-    { role: MessageRole.system, content: modelConfig.systemPrompt },
+    {
+      role: MessageRole.system,
+      content: [modelConfig.systemPrompt, VOICE_CONVERSATION_PROMPT].filter(Boolean).join("\n\n"),
+    },
+    ...(existingConversation?.messages ?? [])
+      .filter((message) => message.role !== MessageRole.system)
+      .map((message) => ({
+        role: message.role as "user" | "assistant",
+        content: message.contentText,
+      })),
     {
       role: userMessage.role as "system" | "user" | "assistant",
       content: userMessage.contentText,
