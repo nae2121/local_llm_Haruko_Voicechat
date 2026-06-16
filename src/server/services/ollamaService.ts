@@ -55,7 +55,7 @@ export async function chatWithOllama(params: {
           temperature: params.modelConfig.temperature,
           top_p: params.modelConfig.topP,
           top_k: params.modelConfig.topK,
-          num_predict: params.modelConfig.maxTokens,
+          num_predict: 128,
         },
       }),
     });
@@ -104,7 +104,7 @@ export async function chatWithOllama(params: {
     if (!content) {
       if (hadThinking || doneReason === "length") {
         throw new Error(
-          "Ollamaが内部思考だけで生成上限に達しました。モデル設定のMax tokensを512以上にしてください。",
+          "Ollamaが内部思考だけで生成上限に達しました。",
         );
       }
       throw new Error("Ollamaから空の応答が返りました。");

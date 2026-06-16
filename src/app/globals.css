@@ -24,3 +24,124 @@ textarea,
 select {
   font: inherit;
 }
+
+.haruko-stage {
+  --voice-level: 0;
+  position: relative;
+  display: grid;
+  height: 150px;
+  width: 150px;
+  flex: 0 0 auto;
+  place-items: center;
+}
+
+.haruko-image {
+  position: relative;
+  z-index: 1;
+  height: 132px;
+  width: 132px;
+  object-fit: contain;
+  filter: drop-shadow(0 10px 24px rgb(0 0 0 / 45%));
+  transform-origin: center bottom;
+}
+
+.haruko-ring {
+  position: absolute;
+  inset: 8px;
+  border: 2px solid rgb(110 231 183 / 30%);
+  border-radius: 9999px;
+  box-shadow: 0 0 calc(12px + var(--voice-level) * 28px) rgb(52 211 153 / 45%);
+  transform: scale(calc(1 + var(--voice-level) * 0.12));
+  transition: transform 80ms linear, box-shadow 80ms linear;
+}
+
+.haruko-idle .haruko-image {
+  animation: haruko-breathe 4.5s ease-in-out infinite;
+}
+
+.haruko-listening .haruko-image {
+  transform: scale(calc(1 + var(--voice-level) * 0.025));
+}
+
+.haruko-processing .haruko-image {
+  animation: haruko-think 1.8s ease-in-out infinite;
+}
+
+.haruko-processing .haruko-ring {
+  animation: haruko-glow 1.8s ease-in-out infinite;
+}
+
+.haruko-speaking .haruko-image {
+  transform: translateY(calc(var(--voice-level) * -5px))
+    scale(calc(1 + var(--voice-level) * 0.035));
+  transition: transform 80ms linear;
+}
+
+.haruko-error .haruko-image,
+.haruko-disabled .haruko-image {
+  filter: grayscale(0.35) brightness(0.75);
+}
+
+.voice-control {
+  border: 1px solid rgb(255 255 255 / 14%);
+  padding: 0.5rem 0.75rem;
+  font-size: 0.75rem;
+  color: rgb(255 255 255 / 75%);
+  transition: border-color 150ms, color 150ms, background-color 150ms;
+}
+
+.voice-control:hover {
+  border-color: rgb(110 231 183 / 50%);
+  color: rgb(209 250 229);
+}
+
+.voice-control-primary {
+  border-color: rgb(110 231 183 / 35%);
+  background: rgb(110 231 183 / 12%);
+  color: rgb(209 250 229);
+}
+
+.voice-control:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+@keyframes haruko-breathe {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-2px) scale(1.018);
+  }
+}
+
+@keyframes haruko-think {
+  0%,
+  100% {
+    filter: drop-shadow(0 8px 20px rgb(52 211 153 / 15%));
+  }
+  50% {
+    filter: drop-shadow(0 8px 28px rgb(52 211 153 / 45%));
+  }
+}
+
+@keyframes haruko-glow {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(0.98);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.04);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .haruko-image,
+  .haruko-ring {
+    animation: none !important;
+    transition: none !important;
+  }
+}

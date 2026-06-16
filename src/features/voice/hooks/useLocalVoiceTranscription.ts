@@ -1,24 +1,29 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState, useSyncExternalStore } from "react";
 
 type TranscribeResponse = {
-  transcript?: string;
+  text?: string;
   error?: string;
 };
 
+const subscribeToBrowserCapabilities = () => () => undefined;
+const getVoiceSupportSnapshot = () =>
+  Boolean(navigator.mediaDevices?.getUserMedia) && "MediaRecorder" in window;
+const getServerVoiceSupportSnapshot = () => false;
+
 export function useLocalVoiceTranscription(onTranscript: (text: string) => void) {
-  const [isSupported, setIsSupported] = useState(false);
+  const isSupported = useSyncExternalStore(
+    subscribeToBrowserCapabilities,
+    getVoiceSupportSnapshot,
+    getServerVoiceSupportSnapshot,
+  );
   const [isRecording, setIsRecording] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<Blob[]>([]);
-
-  useEffect(() => {
-    setIsSupported(Boolean(navigator.mediaDevices?.getUserMedia) && "MediaRecorder" in window);
-  }, []);
 
   const cleanupStream = useCallback(() => {
     streamRef.current?.getTracks().forEach((track) => track.stop());
@@ -38,10 +43,11 @@ export function useLocalVoiceTranscription(onTranscript: (text: string) => void)
           body: formData,
         });
         const data = (await response.json()) as TranscribeResponse;
-        if (!response.ok || !data.transcript) {
+        const transcript = data.text?.trim();
+        if (!response.ok || !transcript) {
           throw new Error(data.error ?? "文字起こしに失敗しました。");
         }
-        onTranscript(data.transcript);
+        onTranscript(transcript);
       } catch (transcribeError) {
         setError(transcribeError instanceof Error ? transcribeError.message : "文字起こしに失敗しました。");
       } finally {

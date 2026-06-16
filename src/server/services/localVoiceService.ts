@@ -1,9 +1,7 @@
 import { env } from "@/lib/env";
 
 type TranscribeResponse = {
-  transcript?: string;
   text?: string;
-  durationMs?: number;
 };
 
 type SynthesizeJsonResponse = {
@@ -31,7 +29,7 @@ export async function transcribeWithLocalStt(params: {
   formData.append("file", params.file, params.file.name || "audio.webm");
 
   try {
-    const response = await fetch(`${env.sttServiceUrl}/transcribe`, {
+    const response = await fetch(`${env.sttBaseUrl}/transcribe`, {
       method: "POST",
       body: formData,
       signal: controller.signal,
@@ -43,18 +41,18 @@ export async function transcribeWithLocalStt(params: {
     }
 
     const data = (await response.json()) as TranscribeResponse;
-    const transcript = (data.transcript ?? data.text ?? "").trim();
+    const transcript = (data.text ?? "").trim();
     if (!transcript) {
       throw new Error("STT service returned an empty transcript.");
     }
 
-    return {
-      transcript,
-      durationMs: data.durationMs ?? null,
-    };
+    return { transcript };
   } catch (error) {
     if (error instanceof Error && error.name === "AbortError") {
       throw new Error("STT service timed out.");
+    }
+    if (error instanceof TypeError) {
+      throw new Error(`STT serviceに接続できません。FastAPIが ${env.sttBaseUrl} で待機していることを確認してください。`);
     }
     throw error;
   } finally {
