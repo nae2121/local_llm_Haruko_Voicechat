@@ -1,9 +1,9 @@
 "use client";
 
-import Image from "next/image";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
-import type { ChatMessage, ModelConfig } from "@/features/chat/types";
+import type { ChatEmotion, ChatMessage, ModelConfig } from "@/features/chat/types";
+import { HarukoImage } from "@/components/chat/HarukoImage";
 import { useChat } from "@/features/chat/hooks/useChat";
 import { useContinuousVoiceChat } from "@/features/voice/hooks/useContinuousVoiceChat";
 import { useLocalSpeechSynthesis } from "@/features/voice/hooks/useLocalSpeechSynthesis";
@@ -25,21 +25,23 @@ export function ChatLayout() {
   const chat = useChat();
   const localTts = useLocalSpeechSynthesis();
   const { sendMessage } = chat;
-  const { speak, outputLevel } = localTts;
+  const { speak, outputLevel, isSpeaking, synthesizingMessageId } = localTts;
   const [autoSpeak, setAutoSpeak] = useState(true);
   const [interactionMode, setInteractionMode] = useState<InteractionMode>("voice");
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [draftMessage, setDraftMessage] = useState("");
+  const [activeHarukoEmotion, setActiveHarukoEmotion] = useState<ChatEmotion>("neutral");
   const [speechVisibleMessageIds, setSpeechVisibleMessageIds] = useState<Set<string>>(() => new Set());
   const lastSpokenMessageIdRef = useRef<string | null>(null);
   const voiceResponsePendingRef = useRef(false);
 
-  const revealAssistantText = useCallback((messageId: string) => {
+  const revealAssistantMessage = useCallback((message: ChatMessage) => {
+    setActiveHarukoEmotion(message.emotion ?? "neutral");
     setSpeechVisibleMessageIds((current) => {
-      if (current.has(messageId)) {
+      if (current.has(message.id)) {
         return current;
       }
-      return new Set(current).add(messageId);
+      return new Set(current).add(message.id);
     });
   }, []);
 
@@ -63,6 +65,7 @@ export function ChatLayout() {
         throw new Error("文字起こし結果が空でした。");
       }
 
+      setActiveHarukoEmotion("neutral");
       const assistantMessage = await sendMessage(transcript);
       if (!assistantMessage) {
         voiceResponsePendingRef.current = false;
@@ -77,11 +80,11 @@ export function ChatLayout() {
       lastSpokenMessageIdRef.current = message.id;
       voiceResponsePendingRef.current = false;
       await speak(message, {
-        onPlaybackStart: () => revealAssistantText(message.id),
+        onPlaybackStart: () => revealAssistantMessage(message),
       });
-      revealAssistantText(message.id);
+      revealAssistantMessage(message);
     },
-    [revealAssistantText, speak],
+    [revealAssistantMessage, speak],
   );
 
   const continuousVoice = useContinuousVoiceChat({
@@ -117,14 +120,29 @@ export function ChatLayout() {
     () => [...chat.messages].reverse().find((message) => message.role === "assistant"),
     [chat.messages],
   );
-  const activeLevel = continuousVoice.state === "speaking" ? outputLevel : continuousVoice.inputLevel;
-  const statusLabel = interactionMode === "text" ? "テキストモード" : stateLabels[continuousVoice.state];
+  const displayVoiceState =
+    continuousVoice.state === "speaking" && !isSpeaking ? "processing" : continuousVoice.state;
+  const activeLevel = displayVoiceState === "speaking" ? outputLevel : continuousVoice.inputLevel;
+  const statusLabel = interactionMode === "text" ? "テキストモード" : stateLabels[displayVoiceState];
   const shouldWaitForSpeechText =
     autoSpeak &&
     latestAssistantMessage !== undefined &&
     !speechVisibleMessageIds.has(latestAssistantMessage.id);
+  const isAssistantOutputActive =
+    autoSpeak &&
+    latestAssistantMessage !== undefined &&
+    (shouldWaitForSpeechText ||
+      synthesizingMessageId === latestAssistantMessage.id ||
+      isSpeaking);
+
+  useEffect(() => {
+    if (latestAssistantMessage && !shouldWaitForSpeechText) {
+      setActiveHarukoEmotion(latestAssistantMessage.emotion ?? "neutral");
+    }
+  }, [latestAssistantMessage, shouldWaitForSpeechText]);
 
   const handleSend = async (message: string) => {
+    setActiveHarukoEmotion("neutral");
     await chat.sendMessage(message);
   };
 
@@ -175,14 +193,7 @@ export function ChatLayout() {
 
       <section className="relative z-10 flex min-h-[calc(100dvh-5rem)] flex-col">
         <div className="relative min-h-0 flex-1">
-          <Image
-            src="/haruko.png"
-            alt="HARUKO"
-            fill
-            priority
-            className="origin-top -translate-y-5 scale-90 object-contain object-top md:-translate-y-8 md:scale-[2.9]"
-            sizes="100vw"
-          />
+          <HarukoImage emotion={activeHarukoEmotion} />
           <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-[#050713]/85" />
         </div>
 
@@ -200,7 +211,7 @@ export function ChatLayout() {
               body={draftMessage || latestUserMessage?.contentText || ""}
             >
               <TextComposer
-                isSending={chat.isSending}
+                disabled={chat.isSending || isAssistantOutputActive}
                 message={draftMessage}
                 onMessageChange={setDraftMessage}
                 onSend={handleSend}
@@ -270,12 +281,12 @@ export function ChatLayout() {
 }
 
 function TextComposer({
-  isSending,
+  disabled,
   message,
   onMessageChange,
   onSend,
 }: {
-  isSending: boolean;
+  disabled: boolean;
   message: string;
   onMessageChange: (message: string) => void;
   onSend: (message: string) => Promise<void>;
@@ -283,7 +294,7 @@ function TextComposer({
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const text = message.trim();
-    if (!text || isSending) {
+    if (!text || disabled) {
       return;
     }
     onMessageChange("");
@@ -295,16 +306,17 @@ function TextComposer({
       <textarea
         value={message}
         onChange={(event) => onMessageChange(event.target.value)}
+        disabled={disabled}
         placeholder="メッセージを入力"
         rows={4}
-        className="min-h-28 flex-1 resize-y border border-lime-300/25 bg-white/[0.06] px-3 py-2 text-sm leading-6 text-white outline-none placeholder:text-white/35 focus:border-lime-300/70"
+        className="min-h-28 flex-1 resize-y border border-lime-300/25 bg-white/[0.06] px-3 py-2 text-sm leading-6 text-white outline-none placeholder:text-white/35 focus:border-lime-300/70 disabled:cursor-not-allowed disabled:opacity-50"
       />
       <button
         type="submit"
-        disabled={isSending || !message.trim()}
+        disabled={disabled || !message.trim()}
         className="h-28 shrink-0 border border-lime-300/45 bg-lime-300 px-4 text-sm font-bold text-black transition hover:bg-lime-200 disabled:cursor-not-allowed disabled:border-white/10 disabled:bg-white/10 disabled:text-white/35"
       >
-        {isSending ? "送信中" : "送信"}
+        {disabled ? "待機中" : "送信"}
       </button>
     </form>
   );

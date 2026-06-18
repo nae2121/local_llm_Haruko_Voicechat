@@ -1,10 +1,12 @@
 export type ChatRole = "system" | "user" | "assistant";
-
+//ここを高校生が変更
+export type ChatEmotion = "joy" | "anger" | "sadness" | "fun" | "neutral";
 export type ChatMessage = {
   id: string;
   conversationId: string;
   role: ChatRole;
   contentText: string;
+  emotion?: ChatEmotion;
   createdAt: string;
   voiceAssets?: VoiceAsset[];
 };
